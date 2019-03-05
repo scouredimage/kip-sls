@@ -1,0 +1,45 @@
+service: kip-sls
+
+provider:
+  name: aws
+  runtime: nodejs8.10
+  region: us-east-1
+  environment:
+    DYNAMODB_TABLE: ${self:service}-${self:custom.stage}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:GetItem
+        - dynamodb:UpdateItem
+        - dynamodb:Scan
+        - dynamodb:DeleteItem
+      Resource: "arn:aws:dynamodb:${self:custom.region}:*:table/${self:provider.environment.DYNAMODB_TABLE}"
+
+resources:
+  Resources:
+    QuestionsTable:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: N
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:provider.environment.DYNAMODB_TABLE}
+
+functions:
+  hello:
+    handler: handler.hello
+    events:
+      - http: GET hello
+
+custom:
+  region: ${opt:region, self:provider.region}
+  stage: ${opt:stage, self:provider.stage}
+
+plugins:
+  - bootstrap
