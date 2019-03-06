@@ -10,6 +10,7 @@ provider:
     - Effect: Allow
       Action:
         - dynamodb:GetItem
+        - dynamodb:PutItem
         - dynamodb:UpdateItem
         - dynamodb:Scan
         - dynamodb:DeleteItem
@@ -22,7 +23,7 @@ resources:
       Properties:
         AttributeDefinitions:
           - AttributeName: id
-            AttributeType: N
+            AttributeType: S
         KeySchema:
           - AttributeName: id
             KeyType: HASH
@@ -32,10 +33,34 @@ resources:
         TableName: ${self:provider.environment.DYNAMODB_TABLE}
 
 functions:
-  hello:
-    handler: handler.hello
+  create:
+    handler: kip.create
     events:
-      - http: GET hello
+      - http:
+          path: /
+          method: post
+          cors: true
+  get:
+    handler: kip.get
+    events:
+      - http:
+          path: /{id}
+          method: get
+          cors: true
+  delete:
+    handler: kip.delete
+    events:
+      - http:
+          path: /{id}
+          method: delete
+          cors: true
+  scan:
+    handler: kip.scan
+    events:
+      - http:
+          path: /
+          method: get
+          cors: true
 
 custom:
   region: ${opt:region, self:provider.region}

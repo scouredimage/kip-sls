@@ -1,99 +1,94 @@
 'use strict';
 
-const aws = require('aws-sdk');
-
-const getDynamoDB = serverless => {
-  const options = {
-    region: serverless.service.custom.region,
-    apiVersions: {
-      dynamodb: '2012-08-10',
-    }
+const invoke = (serverless, provider, fn, data = {}, invocationType = 'RequestResponse', log = 'Tail') => {
+  const functionObj = serverless.service.getFunction(fn);
+  const params = {
+    FunctionName: functionObj.name,
+    InvocationType: invocationType,
+    LogType: log,
+    Payload: new Buffer(JSON.stringify(data)),
   };
-  serverless.cli.log(`AWS options: ${JSON.stringify(options)}`);
-  aws.config.update(options);
-  return new aws.DynamoDB();
+  return provider.request('Lambda', 'invoke', params);
 }
 
 const getTableName = (serverless, options) => {
-  const table = serverless.service.resources.Resources[options.resource].Properties.TableName;
+  const table = serverless.service.resources.Resources[options.name].Properties.TableName;
   return table.replace(serverless.service.custom.stage, options['target-stage'] || 'dev');
 }
 
-const deleteItem = (dynamodb, params, serverless) => new Promise((resolve, reject) => {
-  dynamodb.deleteItem(params, (error) => {
-    if (error) {
-      return reject(error);
+const deleteItem = (provider, params, serverless) => new Promise((resolve, reject) => {
+  invoke(serverless, provider, 'delete', params).then((response) => {
+    const result = JSON.parse(response.Payload);
+    if (result.statusCode !== 200) {
+      return reject(JSON.parse(result.body).error);
+    } else {
+      serverless.cli.log(`Deleted item: ${JSON.stringify(params.pathParameters.id)}`);
+      return resolve();
     }
-    serverless.cli.log(`Deleted ${JSON.stringify(params)}`);
-    return resolve();
+  }).catch(error => {
+    return reject(error);
   });
 });
 
-const truncate = (serverless, options) => new Promise((resolve, reject) => {
-  const dynamodb = getDynamoDB(serverless);
-
-  const params = {
-    TableName: getTableName(serverless, options),
-  }
-
-  serverless.cli.log(`Scanning database: ${JSON.stringify(params)}`);
-  dynamodb.scan(params, (error, result) => {
-    if (error) {
-      serverless.cli.log(`Error scanning kip database! ${JSON.stringify(error)}`);
-      return reject(error);
-    }
-
-    serverless.cli.log(`Deleting ${JSON.stringify(result.Items.length)} items`);
+const truncate = (serverless, options, provider) => new Promise((resolve, reject) => {
+  invoke(serverless, provider, 'scan').then((response) => {
+    const result = JSON.parse(response.Payload).result;
+    serverless.cli.log(`Scan database result: ${JSON.stringify(result)}`);
+    serverless.cli.log(`Deleting ${JSON.stringify(result.count)} items`);
 
     const deletes = [];
-    result.Items.forEach(data => {
+    result.items.forEach(data => {
       const params = {
-        TableName: getTableName(serverless, options),
-        Item: data
+        pathParameters: {
+          id: data.id
+        }
       };
-      deletes.push(deleteItem(dynamodb, params, serverless));
+      deletes.push(deleteItem(provider, params, serverless));
     });
 
     Promise.all(deletes).then(() => {
       serverless.cli.log('Database truncated successfully!')
-      resolve();
+      return resolve();
     }).catch(error => {
       serverless.cli.log(`Error truncating database! ${JSON.stringify(error)}`);
-      reject(error);
-    });
-  });
-});
-
-const writeItem = (dynamodb, params, serverless) => new Promise((resolve, reject) => {
-  dynamodb.putItem(params, (error) => {
-    if (error) {
       return reject(error);
-    }
-    serverless.cli.log(`Created new database entry: ${JSON.stringify(params)}`);
-    return resolve();
+    });
+
+  }).catch(error => {
+    serverless.cli.log(`Error scanning kip database! ${JSON.stringify(error)}`);
+    return reject(error);
   });
 });
 
-const create = (serverless, options) => new Promise((resolve, reject) => {
-  const dynamodb = getDynamoDB(serverless);
+const writeItem = (provider, item, serverless) => new Promise((resolve, reject) => {
+  invoke(serverless, provider, 'create', item).then((response) => {
+    const result = JSON.parse(response.Payload);
+    if (result.statusCode !== 200) {
+      return reject(JSON.parse(result.body).error);
+    } else {
+      serverless.cli.log(`Created new database entry: ${JSON.stringify(item)}`);
+      return resolve(result);
+    }
+  }).catch(error => { 
+    return reject(error);
+  });
+});
+
+const create = (serverless, options, provider) => new Promise((resolve, reject) => {
   const writes = [];
 
-  const records = require(options['file'] || 'db.js');
-  serverless.cli.log(`Bootstrapping kip database with ${JSON.stringify(records.length)} items`);
-  records.forEach(item => {
-    const params = {
-      TableName: getTableName(serverless, options),
-      Item: item
-    };
-    writes.push(writeItem(dynamodb, params, serverless));
+  const items = require(options['file'] || '../db.json');
+  serverless.cli.log(`Bootstrapping kip database with ${JSON.stringify(items.length)} items`);
+  items.forEach(item => {
+    writes.push(writeItem(provider, item, serverless));
   });
 
   Promise.all(writes).then(() => {
     serverless.cli.log('Database bootstrapped successfully!')
-    resolve();
+    return resolve();
   }).catch(error => {
     serverless.cli.log(`Error bootstrapping database! ${JSON.stringify(error)}`);
-    reject(error);
+    return reject(error);
   });
 });
 
@@ -101,6 +96,7 @@ class BootstrapPlugin {
   constructor(serverless, options) {
     this.serverless = serverless;
     this.options = options;
+    this.provider = this.serverless.getProvider('aws')
 
     this.commands = {
       bootstrap: {
@@ -110,10 +106,10 @@ class BootstrapPlugin {
           'create',
         ],
         options: {
-          resource: {
+          name: {
             usage: 'Specify name of resource for your table',
             required: true,
-            shortcut: 'r'
+            shortcut: 'n'
           },
           'target-stage': {
             usage: 'Stage to operate with (default=\'dev\')',
@@ -121,7 +117,7 @@ class BootstrapPlugin {
             shortcut: 't'
           },
           file: {
-            usage: 'Path to JSON questions file (default=\'db.js\'`)',
+            usage: 'Path to JSON questions file (default=\'db.json\'`)',
             required: false,
             shortcut: 'f'
           },
@@ -130,8 +126,8 @@ class BootstrapPlugin {
     };
 
     this.hooks = {
-      'bootstrap:truncate': truncate.bind(null, serverless, options),
-      'bootstrap:create': create.bind(null, serverless, options),
+      'bootstrap:truncate': truncate.bind(null, this.serverless, this.options, this.provider),
+      'bootstrap:create': create.bind(null, this.serverless, this.options, this.provider),
     };
   }
 }
