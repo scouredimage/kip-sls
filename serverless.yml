@@ -1,7 +1,10 @@
+tenant: scouredimage
+app: kip
 service: kip-sls
 
 provider:
   name: aws
+  credentials: ${secrets:aws-sls-dev}
   runtime: nodejs8.10
   region: us-east-1
   environment:
@@ -36,13 +39,6 @@ resources:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
         TableName: ${self:provider.environment.DYNAMODB_TABLE}
-    StaticSite:
-      Type: AWS::S3::Bucket
-      Properties:
-        AccessControl: PublicRead
-        BucketName: ${self:custom.siteName}
-        WebsiteConfiguration:
-          IndexDocument: index.html
 
 functions:
   create:
@@ -86,13 +82,14 @@ custom:
   stage: ${opt:stage, self:provider.stage}
   siteName: sandesh-kip-sls-${self:custom.stage}
   scanEndpoint: '/'
-  s3Sync:
-    - bucketName: ${self:custom.siteName}
-      localDir: static
-      acl: public-read
+  client:
+    bucketName: ${self:custom.siteName}
+    distributionFolder: static
+    indexDocument: index.html
 
 plugins:
+  - '@serverless/enterprise-plugin'
   - bootstrap
   - webpack
   - serverless-dotenv-plugin
-  - serverless-s3-sync
+  - serverless-finch
