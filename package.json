@@ -1,0 +1,15 @@
+{
+    "name": "kip-sls",
+    "version": "0.1.0",
+    "description": "KIP: The Game!",
+    "author": "",
+    "license": "MIT",
+    "private": true,
+    "dependencies": {
+        "dotenv-webpack": "^1.7.0",
+        "pusher": "^2.2.0",
+        "serverless-dotenv-plugin": "^2.0.1",
+        "serverless-s3-sync": "^1.7.3",
+        "webpack": "^4.29.6"
+    }
+}

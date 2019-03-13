@@ -32,7 +32,8 @@ const deleteItem = (provider, params, serverless) => new Promise((resolve, rejec
 
 const truncate = (serverless, options, provider) => new Promise((resolve, reject) => {
   invoke(serverless, provider, 'scan').then((response) => {
-    const result = JSON.parse(response.Payload).result;
+    serverless.cli.log(`Scan database result: ${JSON.stringify(response)}`);
+    const result = JSON.parse(JSON.parse(response.Payload).body).result;
     serverless.cli.log(`Scan database result: ${JSON.stringify(result)}`);
     serverless.cli.log(`Deleting ${JSON.stringify(result.count)} items`);
 
@@ -61,7 +62,8 @@ const truncate = (serverless, options, provider) => new Promise((resolve, reject
 });
 
 const writeItem = (provider, item, serverless) => new Promise((resolve, reject) => {
-  invoke(serverless, provider, 'create', item).then((response) => {
+  invoke(serverless, provider, 'create', {body: JSON.stringify(item)}).then((response) => {
+    serverless.cli.log(`Create item repsonse: ${JSON.stringify(response)}`);
     const result = JSON.parse(response.Payload);
     if (result.statusCode !== 200) {
       return reject(JSON.parse(result.body).error);

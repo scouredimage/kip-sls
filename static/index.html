@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>KIP - The Game!</title>
+    <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/semantic.min.css">
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/semantic.min.js"></script>
+    <script src="https://js.pusher.com/4.3/pusher.min.js"></script>
+    <style type="text/css"> h2 { margin: 2em 0em; }  .ui.container { padding-top: 5em; padding-bottom: 5em; } </style>
+    <style type="text/css">
+        #grid-container {
+            height: 100vh;
+            width: 100%;
+        }
+        .ui.table tbody tr td.selectable {
+            padding: 1em 1em;
+        }
+        .ui.centered.header {
+            font-size: 3em;
+        }
+        .ui.table thead tr {
+            font-size: 2em;
+        }
+        .ui.radio.checkbox label {
+            font-size: 2em;
+            line-height: 30px;
+        }
+    </style>
+    <script src="main.js"></script>
+    <script type="text/javascript">
+    $(function() {
+        var poll = {};
+
+        var validationRules = {
+            fields: {
+                response: {
+                    identifier: 'response',
+                    rules: [
+                        {
+                            type: 'checked',
+                            prompt: 'Please select a response'
+                        },
+                    ]
+                }
+            },
+            on: 'blur',
+            onSuccess: function(event, fields) {
+                event.preventDefault();
+                $('input[name="response"]').each((i, e) => {
+                    if ($(e).prop("checked") || $(e).is(":checked")) {
+                            var response = {id: poll.id, selected: poll.a[i].slice(0, 1)};
+                            console.log(response);
+                            Kip.submit(pusher, response);
+                            $('.ui .success').show();
+                            $('.ui.submit').addClass('disabled');
+                            $('input[name="response"]').each((i, e) => {
+                                $(e).attr("disabled", "disabled");
+                            });
+                            $('td').each((i, e) => {
+                                $(e).removeClass("selectable");
+                            });
+                    }
+                });
+            },
+            onFailure: function() {
+                $('.ui .error').show();
+                return false;
+            }
+        };
+
+        const pusherConfig = Kip.getPusherConfig();
+        Pusher.logToConsole = pusherConfig.logToConsole;
+        const pusher = new Pusher(pusherConfig.key, {
+            cluster: pusherConfig.cluster,
+            authEndpoint: pusherConfig.authEndpoint,
+            forceTLS: pusherConfig.forceTLS
+        });
+
+        Kip.listen(pusher, data => {
+            $('#content').removeClass('loading');
+            $('.form').form('reset');
+            $('.ui.message').hide();
+            console.log(data);
+            $('#pollId').html('Question ' + data.id);
+            $('#question').html(data.q);
+            $('.choices').each((i, e) => {
+                $(e).find('label').html(data.a[i]);
+            });
+            $('.ui.submit').removeClass('disabled');
+            $('td').each((i, e) => {
+                $(e).addClass("selectable");
+            });
+            $('input[name="response"]').each((i, e) => {
+                $(e).removeAttr("disabled");
+            });
+            poll = data;
+        });
+
+        $('.form').form(validationRules);
+    });
+    function tdclick(index, id) {
+        if ($('#' + id).hasClass("selectable")) {
+            var radio = $('input[name="response"]')[index];
+            $(radio).prop("checked", true);
+        }
+    }
+    </script>
+</head>
+<body>
+    <div id="grid-container" class="ui grid middle aligned">
+    <div class="row">
+    <div class="column">
+    <div id="content" class="ui text container segment loading">
+    <h2 id="pollId" class="ui header centered"></h2>
+    <form id="poll" class="ui form">
+    <table class="ui very basic large very padded table centered">
+        <thead>
+            <tr>
+                <th id="question" class="center aligned"></th>
+            </tr>
+        </thead>
+        <tbody>
+            <div class="grouped fields">
+            <tr>
+                <td id="choice_1" onclick='tdclick(0, this.id)' class="selectable choices">
+                    <div class="ui radio checkbox">
+                        <input type="radio" name="response">
+                        <label style="color: #4EB0B3"></label>
+                    </div>
+                </td>
+            </tr>
+            <tr>
+                <td id="choice_2" onclick='tdclick(1, this.id)' class="selectable choices">
+                    <div class="ui radio checkbox">
+                        <input type="radio" name="response">
+                        <label style="color: #99C355"></label>
+                    </div>
+                </td>
+            </tr>
+            <tr>
+                <td id="choice_3" onclick='tdclick(2, this.id)' class="selectable choices">
+                    <div class="ui radio checkbox">
+                        <input type="radio" name="response">
+                        <label style="color: #E36B98"></label>
+                    </div>
+                </td>
+            </tr>
+            </div>
+        </tbody>
+        <tfoot class="full-width">
+            <tr>
+                <th>
+                    <button class="ui right floated primary submit button" type="submit">Submit</button>
+                </th>
+            </tr>
+        </tfoot>
+    </table>
+    <div class="ui success message">
+        <div class="header">Response recorded!</div>
+        <p>Please wait while we tally up results</p>
+    </div>
+    <div class="ui error message">
+        <div class="header">Oops!</div>
+        <p>Sorry, something went terribly wrong.</p>
+    </div>
+    </form>
+    </div>
+    </div>
+    </div>
+    </div>
+</body>
+</html>

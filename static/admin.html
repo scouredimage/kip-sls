@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>KIP - The Game!</title>
+    <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/3.7.0/css/reveal.min.css">
+    <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/3.7.0/css/theme/white.min.css">
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous"></script>
+    <script src="https://js.pusher.com/4.3/pusher.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/canvasjs/1.7.0/canvasjs.js"></script>
+    <style type="text/css">
+        .reveal h3 {
+            text-transform: none;
+        }
+        .reveal h5 {
+            text-transform: none;
+        }
+    </style>
+</head>
+    <body>
+        <div class="reveal">
+            <div class="slides">
+                <section>
+                    <img src="kip.png"/>
+                </section>
+                <section>
+                    <h3>http://bit.ly/playkip</h3>
+                </section>
+            </div>
+        </div>
+
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/3.7.0/lib/js/head.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/3.7.0/js/reveal.min.js"></script>
+        <script src="main.js"></script>
+        <script type="text/javascript">
+            Reveal.initialize({
+                width: '100%',
+                height: '100%'
+            });
+            $(function() {
+                Kip.scan(polls => polls.forEach(p => $('.slides').append(p)));
+
+                var results = {};
+                var collectingResponses = false;
+
+                CanvasJS.addColorSet("kip", Kip.colorPalette);
+
+                const pusherConfig = Kip.getPusherConfig();
+                Pusher.logToConsole = pusherConfig.logToConsole;
+                const pusher = new Pusher(pusherConfig.key, {
+                    cluster: pusherConfig.cluster,
+                    authEndpoint: pusherConfig.authEndpoint,
+                    forceTLS: pusherConfig.forceTLS
+                });
+
+                Reveal.addEventListener('slidechanged', function(event) {
+                    var pollId = $(event.currentSlide).attr("poll_id");
+                    if (pollId) {
+                        var poll = {
+                            id: pollId,
+                            q: $("section[poll_id='" + pollId + "']:first h3").text().trim(),
+                            a: $("section[poll_id='" + pollId + "']:first h5").map((i, e) => {
+                                   return $(e).text().trim(); 
+                               })
+                        };
+                        console.log({poll: poll});
+
+                        Kip.broadcast(pusher, poll, function() {
+                            if (!(pollId in results)) {
+                                results[pollId] = {};
+                                var dataSet = [];
+                                for (i = 0; i < poll.a.length; i++) {
+                                    dataSet.push({
+                                        label: poll.a[i].slice(0, 1),
+                                        y: 0,
+                                        id: i
+                                    });
+                                }
+                                results[pollId]['dataSet'] = dataSet;
+
+                                const container = $('#canvas-' + pollId);
+                                if (container) {
+                                    var chart = new CanvasJS.Chart("canvas-" + pollId, {
+                                        animationEnabled: true,
+                                        colorSet: "kip",
+                                        axisY:{
+                                            gridThickness: 0,
+                                        },
+                                        backgroundColor: "transparent",
+                                        data: [
+                                            {
+                                                type: "column",
+                                                dataPoints: results[pollId]['dataSet']
+                                            }
+                                        ]
+                                    });
+                                    chart.render();
+                                    results[pollId]['chart'] = chart;
+
+                                    if (!collectingResponses) {
+                                        collectingResponses = true;
+                                        Kip.collect(pusher, (data)=> {
+                                            console.log(data);
+                                            results[data.id]['dataSet'] = results[data.id]['dataSet'].map(i => {
+                                                if (i.label == data.selected) {
+                                                    i.y += 1;
+                                                    return i;
+                                                } else {
+                                                    return i;
+                                                }
+                                            });
+                                            console.log({
+                                                poolId: data.id,
+                                                results: results[data.id]['dataSet']
+                                            });
+                                            results[data.id]['chart'].render();
+                                        });
+                                    }
+                                }
+                            }
+                        });
+                    }
+                });
+            });
+        </script>
+    </body>
+</html>

@@ -6,6 +6,11 @@ provider:
   region: us-east-1
   environment:
     DYNAMODB_TABLE: ${self:service}-${self:custom.stage}
+    PUSHER_APP_ID: ${env:PUSHER_APP_ID}
+    PUSHER_APP_KEY: ${env:PUSHER_APP_KEY}
+    PUSHER_APP_SECRET: ${env:PUSHER_APP_SECRET}
+    PUSHER_APP_CLUSTER: ${env:PUSHER_APP_CLUSTER}
+    PUSHER_AUTH_ENDPOINT: ${env:PUSHER_AUTH_ENDPOINT}
   iamRoleStatements:
     - Effect: Allow
       Action:
@@ -31,6 +36,13 @@ resources:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
         TableName: ${self:provider.environment.DYNAMODB_TABLE}
+    StaticSite:
+      Type: AWS::S3::Bucket
+      Properties:
+        AccessControl: PublicRead
+        BucketName: ${self:custom.siteName}
+        WebsiteConfiguration:
+          IndexDocument: index.html
 
 functions:
   create:
@@ -58,13 +70,29 @@ functions:
     handler: kip.scan
     events:
       - http:
-          path: /
+          path: ${self:custom.scanEndpoint}
           method: get
+          cors: true
+  auth:
+    handler: kip.auth
+    events:
+      - http:
+          path: ${env:PUSHER_AUTH_ENDPOINT}
+          method: post
           cors: true
 
 custom:
   region: ${opt:region, self:provider.region}
   stage: ${opt:stage, self:provider.stage}
+  siteName: sandesh-kip-sls-${self:custom.stage}
+  scanEndpoint: '/'
+  s3Sync:
+    - bucketName: ${self:custom.siteName}
+      localDir: static
+      acl: public-read
 
 plugins:
   - bootstrap
+  - webpack
+  - serverless-dotenv-plugin
+  - serverless-s3-sync

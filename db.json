@@ -1,11 +1,38 @@
 [
     {
         "id": "1",
-        "question": "What inspired Gerry to join the Navy?",
+        "question": "Who was Gerry's childhood hero?",
         "choices": [
-            "He crashed two of his dad’s cars",
-            "His girlfriend told him he’d look good in a sailor cap",
-            "He wanted his future children to have their own Navy Federal accounts"
+            "A. John Wayne",
+            "B. Simon of Simon and Garfunkel",
+            "C. Karl Marx"
+        ]
+    },
+    {
+        "id": "2",
+        "question": "What is Gerry's favorite type of movies?",
+        "choices": [
+            "A. WW II Docu-Dramas",
+            "B. Western",
+            "C. Martial Arts"
+        ]
+    },
+    {
+        "id": "3",
+        "question": "If Gerry could be one celebrity, who would he be?",
+        "choices": [
+            "A. Cheyenne Bodie",
+            "B. Elvis Presley",
+            "C. Bradley Cooper's character from A Star is Born"
+        ]
+    },
+    {
+        "id": "4",
+        "question": "What was Gerry's dream job?",
+        "choices": [
+            "A. Motivational speaker",
+            "B. Trophy husband",
+            "C. Police officer"
         ]
     }
 ]
