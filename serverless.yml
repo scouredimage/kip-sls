@@ -4,7 +4,6 @@ service: kip-sls
 
 provider:
   name: aws
-  credentials: ${secrets:aws-sls-dev}
   runtime: nodejs8.10
   region: us-east-1
   environment:

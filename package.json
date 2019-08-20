@@ -6,7 +6,6 @@
     "license": "MIT",
     "private": true,
     "dependencies": {
-        "@serverless/enterprise-plugin": "^0.2.2",
         "dotenv-webpack": "^1.7.0",
         "pusher": "^2.2.0",
         "serverless-dotenv-plugin": "^2.0.1",
